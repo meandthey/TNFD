@@ -5,6 +5,167 @@ library(ggplot2)
 library(openxlsx)
 library(tidyverse)
 library(stringr)
+################### [상장법인 Data] ###################
+mergedData_KOS <- readxl::read_excel("../data/상장법인/연구원님들/경기도 산업 리스트 통합.xlsx", sheet = "Sheet1", col_names = T, skip = 0) %>%
+  mutate(번호 = row.names(.)) %>%
+  rename(`상장기업 업종` = 업종) 
+
+
+mergedData_KOS <- mergedData_KOS %>%
+  mutate(회사명 = gsub("_0", "", 회사명)) %>%
+  filter(!grepl("_", 회사명)) %>%
+  mutate(매출액 = as.numeric(매출액)) %>%
+  filter(!is.na(매출액)) %>%
+  filter(매출액 != 0) %>%
+  arrange(desc(매출액)) %>%
+  mutate(번호 = as.numeric(row.names(.)))
+
+
+
+# mergedData_KOS: Number of rows: 701
+max_sales <- max(mergedData_KOS$매출액)
+min_sales <- min(mergedData_KOS$매출액)
+avg_sales <- mean(mergedData_KOS$매출액)
+median_sales <- mergedData_KOS[ceiling(c(700 * 0.5)), "매출액" ] %>% pull()
+first75_sales <- mergedData_KOS[ceiling(c(700 * 0.75)), "매출액" ] %>% pull()
+
+
+## Graph ##
+graphData <- mergedData_KOS %>%
+  select(회사명, 매출액, 번호)
+
+
+ggplot(data = graphData, aes(x = 번호, y = 매출액)) +
+  geom_point(size = 1) +
+  geom_line() +
+  geom_hline(yintercept = avg_sales, linetype = 'dashed', colour = 'black', size = 1) +
+  geom_hline(yintercept = median_sales, linetype = 'dashed', colour = 'blue', size = 1) +
+  geom_hline(yintercept = first75_sales, linetype = 'dashed', colour = 'red', size = 1) +
+  theme(legend.position = "none",
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(),
+        #axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        text = element_text(size = 40))
+
+
+######## 상위 10%는 빼고.
+
+mergedData_KOS_wo10p <- mergedData_KOS %>%
+  filter(번호 > 71) %>%
+  mutate(번호 = as.numeric(row.names(.)))
+
+# mergedData_KOS: Number of rows: 701
+max_sales_wo10p <- max(mergedData_KOS_wo10p$매출액)
+min_sales_wo10p <- min(mergedData_KOS_wo10p$매출액)
+avg_sales_wo10p <- mean(mergedData_KOS_wo10p$매출액)
+median_sales_wo10p <- mergedData_KOS_wo10p[ceiling(c(nrow(mergedData_KOS_wo10p) * 0.5)), "매출액" ] %>% pull()
+
+ggplot(data = mergedData_KOS_wo10p, aes(x = 번호, y = 매출액)) +
+  geom_point(size = 2) +
+  geom_line() +
+  geom_hline(yintercept = avg_sales_wo10p, linetype = 'dashed', colour = 'black', size = 2) +
+  geom_hline(yintercept = median_sales_wo10p, linetype = 'dashed', colour = 'blue', size = 2) +
+  #geom_hline(yintercept = first75_sales, linetype = 'dashed', colour = 'red', size = 1) +
+  theme(legend.position = "none",
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(),
+        #axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        text = element_text(size = 40),
+        axis.ticks.length = unit(.8, "cm")) +
+  expand_limits(x = 0, y = 0)
+
+################### [MDIS Data] ###################
+
+## 서비스업
+rawData_Se <- readxl::read_excel("../data/MDIS/서비스업.xlsx", sheet = "데이터", col_names = T, skip = 0)
+rawData_Se <- rawData_Se %>%
+  rename(시도코드 = 행정구역코드,
+         대분류코드 = 산업대분류코드,
+         중분류코드 = 산업중분류코드,
+         소분류코드 = 산업소분류코드,
+         세분류코드 = 산업세분류코드,
+         세세분류코드 = 산업세세분류코드,
+         종사자수 = 종사자수_합계수
+  ) %>%
+  mutate(종사자수 = as.numeric(종사자수),
+         매출액 = as.numeric(매출액)) %>%
+  select(시도코드, 대분류코드, 중분류코드, 소분류코드, 세분류코드, 세세분류코드,
+         종사자수, 매출액)
+
+rawData_Se %>%
+  count(대분류코드)
+
+## 운수업
+rawData_Tr <- readxl::read_excel("../data/MDIS/운수업.xlsx", sheet = "데이터", col_names = T, skip = 0) 
+rawData_Tr <- rawData_Tr %>%
+  rename(시도코드 = 행정구역시도코드,
+         대분류코드 = 산업대분류코드,
+         중분류코드 = 산업중분류코드,
+         소분류코드 = 산업소분류코드,
+         세분류코드 = 산업세분류코드,
+         세세분류코드 = 산업세세분류코드,
+         종사자수 = 종사자수_조사_총소계,
+         매출액 = 매출총액
+  ) %>%
+  mutate(종사자수 = as.numeric(종사자수),
+         매출액 = as.numeric(매출액)) %>%
+  select(시도코드, 대분류코드, 중분류코드, 소분류코드, 세분류코드, 세세분류코드,
+         종사자수, 매출액)
+
+## 광업_제조업
+rawData_MiMa <- readxl::read_excel("../data/MDIS/광업_제조업.xlsx", sheet = "데이터", col_names = T, skip = 0) 
+rawData_MiMa <- rawData_MiMa %>%
+  rename(시도코드 = 행정구역시도코드,
+         대분류코드 = 산업대분류코드,
+         중분류코드 = 주사업_산업중분류코드,
+         소분류코드 = 주사업_산업소분류코드,
+         세분류코드 = 주사업_산업세분류코드,
+         세세분류코드 = 주사업_산업세세분류코드,
+         종사자수 = 종사자수_조사_총소계
+  ) %>%
+  mutate(종사자수 = as.numeric(종사자수)) %>%
+  select(시도코드, 대분류코드, 중분류코드, 소분류코드, 세분류코드, 세세분류코드,
+         종사자수, 자산총금액)
+
+## Code Mapping ##
+CodeMap <- readxl::read_excel("../data/Mapping/산업분류 Mapping.xlsx", sheet = "데이터", col_names = T, skip = 1) %>%
+  mutate(소분류코드 = str_sub( 소분류코드, 3),
+         세분류코드 = str_sub( 세분류코드, 4),
+         세세분류코드 = str_sub( 세세분류코드, 5))
+
+
+
+
+## Merge ##
+totalData <- rawData_Se %>% bind_rows(rawData_Tr, rawData_MiMa) %>%
+  mutate(중분류코드 = as.character(중분류코드),
+         소분류코드 = as.character(소분류코드),
+         세분류코드 = as.character(세분류코드),
+         세세분류코드 = as.character(세세분류코드)) %>%
+  left_join(CodeMap, by = c('대분류코드', '중분류코드', '소분류코드', '세분류코드', '세세분류코드'))
+
+
+totalData_GG <- totalData %>%
+  filter(시도코드 == 31) %>%
+  mutate(Full코드 = paste0(대분류코드, 중분류코드, 소분류코드, 세분류코드, 세세분류코드))
+
+
+
+totalData_GG %>%
+  arrange(desc(매출액)) %>%
+  filter(매출액 >= c(median_sales_wo10p/10^(6)))
+
+
+
+
+
+
+
+
+################################################################################################################################################
+
 
 ################### [MDIS Data] ###################
 
@@ -110,20 +271,9 @@ GGdream_address <- str_split(GGdream_Data$소재지지번주소, " ", simplify =
 
 
 ################### [상장법인 Data] ###################
-#data_total <- readxl::read_excel("../data/상장법인/연구원님들/경기도 산업 리스트 통합.xlsx", sheet = "Sheet1", col_names = T, skip = 0)
+
 ## SSN(486), JWH(445), WSY(537)
 data_SSN <- readxl::read_excel("../data/상장법인/연구원님들/상장기업 검색_송새눈_240921.xlsx", sheet = "상장기업 리스트", col_names = T, skip = 0)
-#   mutate(매출액 = as.numeric(str_squish(매출액)),
-#          자산총계 = as.numeric(str_squish(자산총계)))
-# 
-# gsub("\\s", "", data_SSN$매출액)
-# gsub("^#", "", data_SSN$매출액)
-# str_squish(data_SSN$매출액)
-# 
-# as.numeric(gsub("\r\n", "", data_SSN$매출액))
-# gsub(" ", "", data_SSN$매출액)
-
-
 data_JWH <- readxl::read_excel("../data/상장법인/연구원님들/상장기업 검색_조원호_수정2.xlsx", sheet = "상장기업 리스트", col_names = T, skip = 0) %>%
   mutate(직원총수 = as.numeric(직원총수))
 data_WSY <- readxl::read_excel("../data/상장법인/연구원님들/상장기업 검색_원수연.xlsx", sheet = "상장기업 리스트", col_names = T, skip = 0) %>%

@@ -91,17 +91,12 @@ ggplot(data = totalData_GG, aes(x = Full코드)) +
   geom_bar(stat = 'count', width = 0.7)
 
 
-################### [데이터드림림 Data] ###################
+################### [데이터드림 Data] ###################
 GGdream_Data <- read_delim("../data/데이터드림/2021년업종별사업체현황.csv", locale = locale(encoding = "EUC-KR"), delim = ",", col_names = T)
 GGdream_Data <- GGdream_Data %>%
   mutate(소재지지번주소 = gsub("번지", "", 소재지지번주소 )) %>%
   mutate(번호 = row.names(.))
-  # mutate(소재지지번주소 = case_when(
-  #   
-  #   grepl("번지", 소재지지번주소) ~ gsub("번지", "", 소재지지번주소 ),
-  #   TRUE ~ 소재지지번주소
-  #   
-  # ))
+
 
 
 GGdream_address <- str_split(GGdream_Data$소재지지번주소, " ", simplify = T)
@@ -110,7 +105,82 @@ GGdream_address <- str_split(GGdream_Data$소재지지번주소, " ", simplify =
 
 
 ################### [상장법인 Data] ###################
-#data_total <- readxl::read_excel("../data/상장법인/연구원님들/경기도 산업 리스트 통합.xlsx", sheet = "Sheet1", col_names = T, skip = 0)
+mergedData_KOS <- readxl::read_excel("../data/상장법인/연구원님들/경기도 산업 리스트 통합.xlsx", sheet = "Sheet1", col_names = T, skip = 0) %>%
+  mutate(번호 = row.names(.)) %>%
+  rename(`상장기업 업종` = 업종)
+
+
+
+
+
+################### [Mapping: 상장업종toTNFDsector] ###################
+TNFD_mapping <- readxl::read_excel("../data/Mapping/TNFDMapping_total.xlsx", sheet = "상장업종toTNFD", col_names = T, skip = 0)
+TNFD_mapping_big <- readxl::read_excel("../data/Mapping/TNFDMapping_total.xlsx", sheet = "TNFD대분류정의", col_names = T, skip = 0)
+TNFD_mapping_med <- readxl::read_excel("../data/Mapping/TNFDMapping_total.xlsx", sheet = "TNFD중분류정의", col_names = T, skip = 0)
+
+mergedData_KOS_with_TNFD <- mergedData_KOS %>%
+  left_join(TNFD_mapping, by = c("상장기업 업종")) %>%
+  left_join(TNFD_mapping_big, by = c("TNFD_대분류코드")) %>%
+  left_join(TNFD_mapping_med, by = c("TNFD_중분류코드")) 
+
+
+mergedData_KOS_with_TNFD_address <- str_split(mergedData_KOS_with_TNFD$지번주소, " ", simplify = T)
+
+
+
+################### [Mapping: 데이터드림to상장기업업] ###################
+
+matchNumber_All <- c()
+matchNumberMatrix <- matrix(nrow = nrow(mergedData_KOS_with_TNFD_address), ncol = 10)
+for ( i in 1:nrow(mergedData_KOS_with_TNFD_address)) {
+  
+  KOS_each <- mergedData_KOS_with_TNFD_address[i,]
+  KOS_each <- KOS_each[KOS_each != ""]
+  
+  for ( j in 1:nrow(GGdream_address)) {
+    
+    All_each <- GGdream_address[j,]
+    All_each <- All_each[All_each != ""]
+    
+    result_each <- sum(KOS_each %in% All_each)
+    
+    matchNumber_All[j] <- result_each
+    
+  }
+  
+  matchNumber <- which(matchNumber_All == max(matchNumber_All))
+  
+  if (length(matchNumber) >= 10 ) {
+    
+    matchNumberMatrix[i,1] <- 0
+    
+  } else {
+    
+    matchNumberMatrix[i,c(1:length(matchNumber))] <- matchNumber
+    
+  }
+  
+}
+
+matchNumberTibble <- as.tibble(matchNumberMatrix) %>%
+  mutate(번호 = row.names(.))
+
+matchNumberMatrix_onlyOne <- matchNumberTibble %>%
+  filter(is.na(V2),
+         V1 != 0) %>%
+  select(V1, 번호)
+
+final_sampleData <- mergedData_KOS_with_TNFD %>%
+  left_join(matchNumberMatrix_onlyOne, by = c("번호")) %>%
+  left_join(GGdream_Data %>% rename(V1 = 번호) %>% mutate(V1 = as.numeric(V1)), by = c("V1"))
+
+
+
+
+
+
+###########################################################################################################################################################################
+
 ## SSN(486), JWH(445), WSY(537)
 data_SSN <- readxl::read_excel("../data/상장법인/연구원님들/상장기업 검색_송새눈_240921.xlsx", sheet = "상장기업 리스트", col_names = T, skip = 0)
 #   mutate(매출액 = as.numeric(str_squish(매출액)),
@@ -140,49 +210,6 @@ mergedData_KOS <- data_SSN %>%
 
 mergedData_KOS_address <- str_split(mergedData_KOS$지번주소, " ", simplify = T)
 
-matchNumber_All <- c()
-matchNumberMatrix <- matrix(nrow = nrow(mergedData_KOS_address), ncol = 10)
-for ( i in 1:nrow(mergedData_KOS_address)) {
-  
-  KOS_each <- mergedData_KOS_address[i,]
-  KOS_each <- KOS_each[KOS_each != ""]
-  
-  for ( j in 1:nrow(GGdream_address)) {
-    
-    All_each <- GGdream_address[j,]
-    All_each <- All_each[All_each != ""]
-    
-    result_each <- sum(KOS_each %in% All_each)
-    
-    matchNumber_All[j] <- result_each
-
-  }
-  
-  matchNumber <- which(matchNumber_All == max(matchNumber_All))
-  
-  if (length(matchNumber) >= 10 ) {
-    
-    matchNumberMatrix[i,1] <- 0
-    
-  } else {
-    
-    matchNumberMatrix[i,c(1:length(matchNumber))] <- matchNumber
-    
-  }
-  
-}
-
-matchNumberTibble <- as.tibble(matchNumberMatrix) %>%
-  mutate(번호 = row.names(.))
-
-matchNumberMatrix_onlyOne <- matchNumberTibble %>%
-  filter(is.na(V2),
-         V1 != 0) %>%
-  select(V1, 번호)
-
-final_sampleData <- mergedData_KOS %>%
-  left_join(matchNumberMatrix_onlyOne, by = c("번호")) %>%
-  left_join(GGdream_Data %>% rename(V1 = 번호) %>% mutate(V1 = as.numeric(V1)), by = c("V1"))
 
   
 
