@@ -1,0 +1,25 @@
+# Table 3.1의 column 이름
+Driver of nature change/Other metric category: 자연 변화의 원인/기타 지표 범주
+Metric no.: 지표 번호
+Core global indicator: 핵심 글로벌 지표
+Core global metric: 핵심 글로벌 측정값
+Guidance for sector: 부문별 지침
+Source: 출처
+
+# Table 3.2의 column 이름
+Metric category: 지표 범주
+Metric subcategory: 지표 하위 범주
+Metric number: 지표 번호
+Indicator: 지표
+Core sector metric: 핵심 부문 측정값
+Source: 출처
+
+# Table 3.3의 column 이름
+Metric category: 지표 범주
+Metric subcategory: 지표 하위 범주
+Metric number: 지표 번호
+Indicator: 지표
+Additional sector metric: 추가 부문 측정값
+Source: 출처
+
+
